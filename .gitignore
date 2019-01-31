@@ -1,0 +1,8 @@
+# IDE
+.vs/
+.vscode/
+
+# Binaries
+*.out
+*.s
+*.o
