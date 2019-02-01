@@ -4,15 +4,15 @@
  * You __MUST__ add your user information here below
  *
  * === User information ===
- * Group: GROUPNAME
+ * Group: Pending-group-name
  * ===
- * User 1: RU-LOGIN
- * SSN: DDMMYY-XXXX
+ * User 1: baldurh17
+ * SSN: 
  * ===
- * User 2:
- * SSN:
+ * User 2: egilltor17
+ * SSN: 250697-2529
  * ===
- * User 3:
+ * User 3: kristofer17
  * SSN:
  * === End User Information ===
  */
