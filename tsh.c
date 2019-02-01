@@ -6,13 +6,13 @@
  * === User information ===
  * Group: Pending-group-name
  * ===
- * User 1: baldurh17
- * SSN: 
+ * User 1: ernir17
+ * SSN: ...
  * ===
  * User 2: egilltor17
  * SSN: 250697-2529
  * ===
- * User 3: kristofer17
+ * User 3: hallgrimur17
  * SSN:
  * === End User Information ===
  */
