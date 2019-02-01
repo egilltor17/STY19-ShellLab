@@ -7,7 +7,7 @@
  * Group: Pending-group-name
  * ===
  * User 1: ernir17
- * SSN: ...
+ * SSN: 180996-4279
  * ===
  * User 2: egilltor17
  * SSN: 250697-2529
