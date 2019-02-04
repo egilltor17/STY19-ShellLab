@@ -191,36 +191,54 @@ void eval(char *cmdline)
 	char buf[MAXLINE];			/* Holds modified command line */
 	int bg;						/* Should the job run in bg or fg? */
 	pid_t pid;					/* Process id */
+    sigset_t mask, prev_one;
+    
 	
 	strcpy(buf, cmdline);
 	bg = parseline(buf, argv);
 	if (argv[0] == NULL) {
 		return;					/* Ignore empty lines */
 	}
+
+    Sigemptyset(&mask);
+    Sigaddset(&mask, SIGCHLD);
+    Sigprocmask(SIG_BLOCK, &mask, &prev_one); /* Block SIGCHLD */
 	
 	if (!builtin_cmd(argv)) {
+        
 		if ((pid = Fork()) == 0) { /* Child runs user job */ 
-            if (execve(argv[0], argv, environ) < 0) {
-			printf("%s: Command not found.\n", argv[0]);
-			exit(0);	
+            Sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock SIGCHLD */
+
+			if (execve(argv[0], argv, environ) < 0) {
+			    printf("%s: Command not found.\n", argv[0]);
+			    exit(0);	
 			}
-		}
-		
-        addjob(jobs, pid, 2 - !bg, cmdline);
-		/* Parent waits for foreground job to terminate */
-		if (!bg) {
-			int status;
-			if (waitpid(pid, &status, 0) < 0) {
-				unix_error("waitfg: waitpid error");
+            
+		} else { /* Parent */
+
+            
+
+            addjob(jobs, pid, 2 - !bg, cmdline);
+
+            /* Parent waits for foreground job to terminate */
+            if (!bg) {
+                int status;
+                if (waitpid(pid, &status, 0) < 0) {
+                    unix_error("waitfg: waitpid error"); 
+                }
+                waitfg(pid);
             }
-            //sigchildx
-        } else
-            printf("%d %s", pid, cmdline);
-        //deletejob(jobs, pid);
+            else {
+                printf("%d %s", pid, cmdline);
+            }
+            Sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock SIGCHLD */
+
+        }
 	}
 	
 	return;
 }
+
 
 /*
  * parseline - Parse the command line and build the argv array.
@@ -288,7 +306,7 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv)
 {
-	if (!strcmp(argv[0], "quit"))		/* quit command */{
+	if (!strcmp(argv[0], "quit")) { 	/* quit command */
         exit(0);
     }
     if (!strcmp(argv[0], "jobs")) {      /* jobs command */
