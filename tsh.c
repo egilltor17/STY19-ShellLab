@@ -294,10 +294,11 @@ int builtin_cmd(char **argv)
         return 1;
     }
 	if (!strcmp(argv[0], "&")) {		/* Ignore singleton & */
-            return 1;
-        }
-	if (!strcmp(argv[0], "fg") || !strcmp(argv[0], "fg")) {
-        return do_bgfg(argv);
+        return 1;
+    }
+	if (!strcmp(argv[0], "fg") || !strcmp(argv[0], "bg")) {
+        do_bgfg(argv);
+        return 1;
     }
     return 0;							/* Not a builtin command */
 }
