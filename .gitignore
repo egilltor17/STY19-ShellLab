@@ -6,3 +6,12 @@
 *.out
 *.s
 *.o
+
+# Compiled shell
+./tsh
+./tshref
+
+./myint
+./myspin
+./mysplit
+./mystop
