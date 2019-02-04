@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
+//#include SIO
 
 /* Misc manifest constants */
 #define MAXLINE    1024   /* max line size */
@@ -173,7 +174,6 @@ pid_t Fork(void)
 	return pid;
 }
 
-
 /*
  * eval - Evaluate the command line that the user has just typed in
  *
@@ -200,21 +200,23 @@ void eval(char *cmdline)
 	
 	if (!builtin_cmd(argv)) {
 		if ((pid = Fork()) == 0) { /* Child runs user job */ 
-			if (execve(argv[0], argv, environ) < 0) {
+            if (execve(argv[0], argv, environ) < 0) {
 			printf("%s: Command not found.\n", argv[0]);
 			exit(0);	
 			}
-            addjob(jobs, pid, 2 - !bg, cmdline);
 		}
 		
+        addjob(jobs, pid, 2 - !bg, cmdline);
 		/* Parent waits for foreground job to terminate */
 		if (!bg) {
 			int status;
-			if (waitpid(pid, &status, 0) < 0)
+			if (waitpid(pid, &status, 0) < 0) {
 				unix_error("waitfg: waitpid error");
-	}
-	else
-		printf("%d %s", pid, cmdline);
+            }
+            //sigchildx
+        } else
+            printf("%d %s", pid, cmdline);
+        //deletejob(jobs, pid);
 	}
 	
 	return;
@@ -393,11 +395,9 @@ int maxjid(struct job_t *jobs)
 int addjob(struct job_t *jobs, pid_t pid, int state, char *cmdline)
 {
     int i;
-
     if (pid < 1) {
         return 0;
     }
-
     for (i = 0; i < MAXJOBS; i++) {
         if (jobs[i].pid == 0) {
             jobs[i].pid = pid;
