@@ -306,7 +306,7 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv)
 {
-	if (!strcmp(argv[0], "quit"))		/* quit command */{
+	if (!strcmp(argv[0], "quit")) { 	/* quit command */
         exit(0);
     }
     if (!strcmp(argv[0], "jobs")) {      /* jobs command */
@@ -371,6 +371,12 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig)
 {
+    //get the pid of the process in the forground
+    pid_t pid = fgpid(jobs);
+    if (pid > 0)
+    {
+        kill(-pid, sig);
+    }
     return;
 }
 
@@ -381,6 +387,7 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig)
 {
+    sigint_handler(sig);
     return;
 }
 
