@@ -336,6 +336,15 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
+    job = getjobpid(jobs,pid);
+
+    if(job != NULL) {
+        while(fgpid(jobs) != pid) {
+
+        }
+    }
+    
+
     return;
 }
 
