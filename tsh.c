@@ -200,14 +200,14 @@ void eval(char *cmdline)
 		return;					/* Ignore empty lines */
 	}
 
-    Sigemptyset(&mask);
-    Sigaddset(&mask, SIGCHLD);
-    Sigprocmask(SIG_BLOCK, &mask, &prev_one); /* Block SIGCHLD */
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &mask, &prev_one); /* Block SIGCHLD */
 	
 	if (!builtin_cmd(argv)) {
         
 		if ((pid = Fork()) == 0) { /* Child runs user job */ 
-            Sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock SIGCHLD */
+            sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock SIGCHLD */
 
 			if (execve(argv[0], argv, environ) < 0) {
 			    printf("%s: Command not found.\n", argv[0]);
@@ -231,7 +231,7 @@ void eval(char *cmdline)
             else {
                 printf("%d %s", pid, cmdline);
             }
-            Sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock SIGCHLD */
+            sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock SIGCHLD */
 
         }
 	}
@@ -352,6 +352,21 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig)
 {
+    pid_t pid;
+    int childStatus;
+    while ((pid = waitpid(fgpid(jobs), &childStatus, WNOHANG)) > 0){
+        if (WIFEXITED(childStatus)){
+            deletejob(jobs, pid);
+            printf("child terminated, status=%d\n", pid, WEXITSTATUS(childStatus));
+        }
+        else if(WIFSTOPPED(childStatus)){
+            /*Set job state to stopped*/
+            getjobpid(jobs, pid)->state = ST;
+            printf("child stopped, pid=%d\n", pid);
+        }
+    }
+    //printf("child terminated abnormallly\n");
+    fflush(stdout);
     return;
 }
 
@@ -366,6 +381,7 @@ void sigint_handler(int sig)
     pid_t pid = fgpid(jobs);
     if (pid > 0)
     {
+        /*Send a kill SIGINT*/
         kill(-pid, sig);
     }
     return;
@@ -378,7 +394,13 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig)
 {
-    sigint_handler(sig);
+    //get the pid of the process in the forground
+    pid_t pid = fgpid(jobs);
+    if (pid > 0)
+    {
+        /*Send a kill SIGTSTP*/
+        kill(-pid, sig);
+    }
     return;
 }
 
