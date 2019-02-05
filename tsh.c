@@ -200,14 +200,14 @@ void eval(char *cmdline)
 		return;					/* Ignore empty lines */
 	}
 
-    Sigemptyset(&mask);
-    Sigaddset(&mask, SIGCHLD);
-    Sigprocmask(SIG_BLOCK, &mask, &prev_one); /* Block SIGCHLD */
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &mask, &prev_one); /* Block SIGCHLD */
 	
 	if (!builtin_cmd(argv)) {
         
 		if ((pid = Fork()) == 0) { /* Child runs user job */ 
-            Sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock SIGCHLD */
+            sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock SIGCHLD */
 
 			if (execve(argv[0], argv, environ) < 0) {
 			    printf("%s: Command not found.\n", argv[0]);
@@ -231,7 +231,7 @@ void eval(char *cmdline)
             else {
                 printf("%d %s", pid, cmdline);
             }
-            Sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock SIGCHLD */
+            sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock SIGCHLD */
 
         }
 	}
@@ -336,6 +336,15 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
+    job = getjobpid(jobs,pid);
+
+    if(job != NULL) {
+        while(fgpid(jobs) != pid) {
+
+        }
+    }
+    
+
     return;
 }
 
