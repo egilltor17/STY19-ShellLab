@@ -336,11 +336,11 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    job = getjobpid(jobs,pid);
-
+    job = getjobpid(jobs, pid);
+    pid_t pidfg;
     if(job != NULL) {
-        while(fgpid(jobs) != pid) {
-
+        while ((pidfg = fgpid(jobs)) != pid) {
+            waitpid(pidfg, NULL, 0);
         }
     }
     
