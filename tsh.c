@@ -171,8 +171,8 @@ int main(int argc, char **argv)
  */
 pid_t Fork(void)
 {
-    int old_errno = errno;
-	pid_t pid;
+    int old_errno = errno;          /* Backup errno */
+	pid_t pid;                      /* Process id */
 	if ((pid = fork()) < 0)
 		unix_error("Fork error");
 	errno = old_errno;
@@ -184,8 +184,8 @@ pid_t Fork(void)
  */
 int Kill(pid_t pid, int sig)
 {
-    int old_errno = errno;
-	int success;
+    int old_errno = errno;          /* Backup errno */
+	int success;                    /* return form kill */
 	if ((success = kill(pid, sig)) < 0)
 		unix_error("Signal error");
 	errno = old_errno;
@@ -227,9 +227,10 @@ void eval(char *cmdline)
             setpgid(0, 0);                                  /* Get new group for child process */
             sigprocmask(SIG_SETMASK, &prev_one, NULL);      /* Unblock SIGCHLD */
 			if (execve(argv[0], argv, environ) < 0) {       /* Execute the command in the child process */
-			    printf("%s: Command not found.\n", argv[0]);
+			    printf("%s: Command not found\n", argv[0]);
 			    exit(0);	
 			}
+        /* Parent waits for child */
 		} else {                                            /* Parent */
             addjob(jobs, pid,(2 - !bg), cmdline);           /* Add child to joblist */
             sigprocmask(SIG_SETMASK, &prev_one, NULL);      /* Unblock Parent */
@@ -376,7 +377,7 @@ void do_bgfg(char **argv)
             return;
         }
     } else { /* neither */
-        printf("argument must be a PID or %%jobid\n");
+        printf("%s: argument must be a PID or %%jobid\n", argv[0]);
         return;
     }
 
@@ -398,8 +399,6 @@ void do_bgfg(char **argv)
     return;
 }
  
- 
-
 /*
  * waitfg - Block until process pid is no longer the foreground process
  */
@@ -438,9 +437,9 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig)
 {
-    pid_t pid;          /* Process id of terminated child */
-    int childStatus;    /* Status of the child */
-    // errno
+    pid_t pid;              /* Process id of terminated child */
+    int childStatus;        /* Status of the child */
+    int old_errno = errno;  /* Back up errno */
     while ((pid = waitpid(-1, &childStatus, WNOHANG|WUNTRACED)) > 0) {
         if (WIFEXITED(childStatus)) {           /* Child terminated normally */ 
             deletejob(jobs, pid);
@@ -457,6 +456,7 @@ void sigchld_handler(int sig)
             printf("child terminated abnormallly\n");
         }
     }
+    errno = old_errno;      /* Retore errno */
     return;
 }
 
