@@ -166,31 +166,102 @@ int main(int argc, char **argv)
     exit(0); /* control never reaches here */
 }
 
-/*
- * Wraper for systemfunction fork()
- */
+/* Wraper for systemfunction fork() */
 pid_t Fork(void)
 {
     int old_errno = errno;          /* Backup errno */
 	pid_t pid;                      /* Process id */
-	if ((pid = fork()) < 0)
-		unix_error("Fork error");
-	errno = old_errno;
+	if ((pid = fork()) < 0) {
+		unix_error("fork error");
+    }
+	errno = old_errno;              /* Restore errno */
     return pid;
 }
 
-/*
- * Wraper for systemfunction kill()
- */
+/* Wraper for systemfunction kill() */
 int Kill(pid_t pid, int sig)
 {
     int old_errno = errno;          /* Backup errno */
-	int success;                    /* return form kill */
-	if ((success = kill(pid, sig)) < 0)
-		unix_error("Signal error");
-	errno = old_errno;
-    return success;
+	int result;                     /* return form kill */
+	if ((result = kill(pid, sig)) < 0) {
+		unix_error("kill error");
+    }
+	errno = old_errno;              /* Restore errno */
+    return result;
 }
+
+/* Wraper for systemfunction execve() */
+int Execve(const char *filename, char *const argv[], char *const envp[])
+{
+    int old_errno = errno;          /* Backup errno */
+	int result;
+	if ((result = execve(filename, argv, envp)) < 0) {
+		unix_error("execve error");
+    }
+	errno = old_errno;              /* Restore errno */
+    return result;
+}
+
+/* Wraper for systemfunction sigemptyset() */
+int Sigemptyset(sigset_t *sig)
+{
+    int old_errno = errno;          /* Backup errno */
+	int result;
+	if ((result = sigemptyset(sig)) < 0) {
+		unix_error("sigemptyset error");
+    }
+	errno = old_errno;              /* Restore errno */
+    return result;
+}
+
+/* Wraper for systemfunction sigaddset() */
+int Sigaddset(sigset_t *sig, int signum)
+{
+    int old_errno = errno;          /* Backup errno */
+	int result;
+	if ((result = sigaddset(sig, signum)) < 0) {
+		unix_error("sigaddset error");
+    }
+	errno = old_errno;              /* Restore errno */
+    return result;
+}
+
+/* Wraper for systemfunction sigprocmask() */
+int Sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset)
+{
+    int old_errno = errno;          /* Backup errno */
+	int result;
+	if ((result = sigprocmask(how, set, oset)) < 0) {
+		unix_error("sigprocmask error");
+    }
+	errno = old_errno;              /* Restore errno */
+    return result;
+}
+
+/* Wraper for systemfunction setpgid() */
+int Setpgid(pid_t pid, pid_t pgid)
+{
+    int old_errno = errno;          /* Backup errno */
+	int result;
+	if ((result = setpgid(pid, pgid)) < 0) {
+		unix_error("setpgid error");
+    }
+	errno = old_errno;              /* Restore errno */
+    return result;
+}
+
+/* Wraper for systemfunction waitpid() */
+ pid_t Waitpid(pid_t pid, int *status, int options);
+{
+    int old_errno = errno;          /* Backup errno */
+	int result;
+	if ((result = waitpid(pid, status, options)) < 0) {
+		unix_error("waitpid error");
+    }
+	errno = old_errno;              /* Restore errno */
+    return result;
+}
+
 
 /*
  * eval - Evaluate the command line that the user has just typed in
@@ -219,21 +290,21 @@ void eval(char *cmdline)
 	}
 
 	if (!builtin_cmd(argv)) {
-        sigemptyset(&mask);
-        sigaddset(&mask, SIGCHLD);
-        sigprocmask(SIG_BLOCK, &mask, &prev_one);           /* Block SIGCHLD */
+        Sigemptyset(&mask);
+        Sigaddset(&mask, SIGCHLD);
+        Sigprocmask(SIG_BLOCK, &mask, &prev_one);           /* Block SIGCHLD */
 		/* Child runs user job */ 
         if ((pid = Fork()) == 0) {                          /* Child */                          
-            setpgid(0, 0);                                  /* Get new group for child process */
-            sigprocmask(SIG_SETMASK, &prev_one, NULL);      /* Unblock SIGCHLD */
+            Setpgid(0, 0);                                  /* Get new group for child process */
+            Sigprocmask(SIG_SETMASK, &prev_one, NULL);      /* Unblock SIGCHLD */
 			if (execve(argv[0], argv, environ) < 0) {       /* Execute the command in the child process */
-			    printf("%s: Command not found\n", argv[0]);
+                printf("%s: Command not found\n", argv[0]);
 			    exit(0);	
 			}
         /* Parent waits for child */
 		} else {                                            /* Parent */
             addjob(jobs, pid,(2 - !bg), cmdline);           /* Add child to joblist */
-            sigprocmask(SIG_SETMASK, &prev_one, NULL);      /* Unblock Parent */
+            Sigprocmask(SIG_SETMASK, &prev_one, NULL);      /* Unblock Parent */
             if (!bg) {
                 waitfg(pid);                                /* Parent waits for foreground job to terminate */
             } 
@@ -440,7 +511,7 @@ void sigchld_handler(int sig)
     pid_t pid;              /* Process id of terminated child */
     int childStatus;        /* Status of the child */
     int old_errno = errno;  /* Back up errno */
-    while ((pid = waitpid(-1, &childStatus, WNOHANG|WUNTRACED)) > 0) {
+    while ((pid = Waitpid(-1, &childStatus, WNOHANG|WUNTRACED)) > 0) {
         if (WIFEXITED(childStatus)) {           /* Child terminated normally */ 
             deletejob(jobs, pid);
         }
