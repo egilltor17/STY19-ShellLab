@@ -339,7 +339,9 @@ void do_bgfg(char **argv)
      * neither
      */ 
     if (argv[1][0] == '%') { /* jid */
-        /* pointer starts on the second character of the second argument (ex. %123) */
+        /* pointer starts on the second character of the second argument (ex. %123)
+         * since the '%' symbol is only used to differentiate between pid and jid
+         * and not a part of the jid itself */
         jid = atoi(argv[1] + 1);
         /* make the job pointer point to the job we plan to update */
         job = getjobjid(jobs, jid);
