@@ -216,26 +216,19 @@ void eval(char *cmdline)
             
 		} else { /* Parent */
 
-            
-
             addjob(jobs, pid, 2 - !bg, cmdline);
 
             /* Parent waits for foreground job to terminate */
             if (!bg) {
-                int status;
-                if (waitpid(pid, &status, 0) < 0) {
-                    unix_error("waitfg: waitpid error"); 
-                }
                 waitfg(pid);
+                deletejob(jobs, pid);
             }
             else {
-                printf("%d %s", pid, cmdline);
+                printf("[%d] (%d) %s", pid2jid(pid), pid, cmdline);
             }
             sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock SIGCHLD */
-
         }
 	}
-	
 	return;
 }
 
@@ -328,24 +321,61 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv)
 {
+    // struct job_t *job;
+    // int jid;
+    // pid_t pid;
+ 
+    // /* Error handling */
+    // if(argv[1] == NULL) {
+    //     printf("%s command requires pid or jid as seccond argument\n");
+    //     return;
+    // }
+ 
+    // /* bg == 0 if arg1 == fg, bg == 1 if arg1 == bg */
+    // int bg = 0;
+    // if (!strcmp(argv[0], "bg")) {
+    //     bg = 1;
+    // }
+ 
+    // /*
+    //  * the following three if statements read the first
+    //  * character from the seccond element of argv to see
+    //  * whether the seccond element is a
+    //  * jid : argv[1][0] == '%'
+    //  * pid : 0 > argv[1][0] <= 9
+    //  * neither
+    //  */
+    // if (argv[1][0] == '%') { /* jid */
+    //     jid = atoi()
+    // }
+    // else if (argv[1][0] > '0' && argv[1][0] <= '9') { /* pid */
+ 
+    // }
+    // else { /* neither */
+ 
+     
+ 
     return;
 }
-
+ 
+ 
+ 
 /*
  * waitfg - Block until process pid is no longer the foreground process
  */
 void waitfg(pid_t pid)
 {
-    job = getjobpid(jobs, pid);
-    pid_t pidfg;
-    if(job != NULL) {
-        while ((pidfg = fgpid(jobs)) != pid) {
-            waitpid(pidfg, NULL, 0);
-        }
+    int status;
+    if(waitpid(pid, &status, 0) < 0) {
+        unix_error("waitfg: waitpid error");
     }
-    
-
     return;
+    // struct job_t *job = getjobpid(jobs, pid);
+ 
+    // while (job->state == FG) {
+    //     sleep(1);
+    // }
+    // return;
 }
 
 /*****************
