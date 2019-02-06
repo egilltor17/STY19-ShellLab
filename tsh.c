@@ -12,10 +12,14 @@
  * User 2: egilltor17
  * SSN: 250697-2529
  * ===
- * User 3: hallgrimur17
- * SSN:
+ * User 3: hallgrimura17
+ * SSN: 040396-2929
  * === End User Information ===
  */
+/* Prevents implicit declaration warning from asprintf */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -25,6 +29,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
+
 //#include SIO
 
 /* Misc manifest constants */
@@ -77,7 +82,11 @@ void waitfg(pid_t pid);
 void sigchld_handler(int sig);
 void sigtstp_handler(int sig);
 void sigint_handler(int sig);
-
+void std_sig_handler(int sig);
+ssize_t sio_puts(char s[]);
+ssize_t Sio_puts(char s[]);
+static size_t sio_strlen(char s[]);
+void sio_error(char s[]);
 /* Here are helper routines that we've provided for you */
 int parseline(const char *cmdline, char **argv);
 void sigquit_handler(int sig);
@@ -190,6 +199,28 @@ int Kill(pid_t pid, int sig)
 		unix_error("Signal error");
 	errno = old_errno;
     return success;
+}
+ssize_t sio_puts(char s[]) /* Put string */ {
+    return write(STDOUT_FILENO, s, sio_strlen(s)); //line:csapp:siostrlen
+}
+ssize_t Sio_puts(char s[]) {
+    ssize_t n;
+    if ((n = sio_puts(s)) < 0)
+	sio_error("Sio_puts error");
+    return n;
+}
+static size_t sio_strlen(char s[])
+{
+    int i = 0;
+
+    while (s[i] != '\0')
+        ++i;
+    return i;
+}
+void sio_error(char s[]) /* Put error message and exit */
+{
+    sio_puts(s);
+    _exit(1);                                      //line:csapp:sioexit
 }
 
 /*
@@ -440,23 +471,30 @@ void sigchld_handler(int sig)
     pid_t pid;              /* Process id of terminated child */
     int childStatus;        /* Status of the child */
     int old_errno = errno;  /* Back up errno */
+    char* string;
     while ((pid = waitpid(-1, &childStatus, WNOHANG|WUNTRACED)) > 0) {
         if (WIFEXITED(childStatus)) {           /* Child terminated normally */ 
             deletejob(jobs, pid);
         }
         else if(WIFSTOPPED(childStatus)) {      /* Child stopped */ 
             getjobpid(jobs, pid)->state = ST;   /* Set job state to stopped */
-            printf("Job [%d] (%d) stopped by signal %d\n", pid2jid(pid), pid, WSTOPSIG(childStatus));
+            if(asprintf(&string, "Job [%d] (%d) stopped by signal %d\n", pid2jid(pid), pid, WSTOPSIG(childStatus)) < 0) {
+                unix_error("asprintf error");
+            }
+            Sio_puts(string);
         }
         else if(WIFSIGNALED(childStatus)) {     /* Child terminated by uncaught signal */
-            printf("Job [%d] (%d) terminated by signal %d\n", pid2jid(pid), pid, WTERMSIG(childStatus));
+            if (asprintf(&string, "Job [%d] (%d) terminated by signal %d\n", pid2jid(pid), pid, WTERMSIG(childStatus)) < 0) {
+                unix_error("asprintf error");
+            }
+            Sio_puts(string);
             deletejob(jobs, pid);
         }
         else {                                  /* Child terminated by unusual signal */
-            printf("child terminated abnormallly\n");
+            Sio_puts("child terminated abnormallly\n");
         }
     }
-    errno = old_errno;      /* Retore errno */
+    errno = old_errno;      /* Restore errno */
     return;
 }
 
@@ -467,10 +505,7 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig)
 {
-    pid_t pid = fgpid(jobs);        /* get the pid of the process in the forground */
-    if ((pid > 0) && (pid2jid(pid) > 0)) {
-        Kill(-pid, sig);            /* Send a kill SIGINT */
-    }
+    std_sig_handler(sig);
     return;
 }
 
@@ -481,13 +516,18 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig)
 {
+    std_sig_handler(sig);
+    return;   
+}
+/*make standard sig handler so the handlers arent depending on each other*/
+void std_sig_handler(int sig)
+{
     pid_t pid = fgpid(jobs);    /* get the pid of the process in the forground */
     if ((pid > 0) && (pid2jid(pid) > 0)) {
-        Kill(-pid, sig);        /* Send a kill SIGTSTP */
+        Kill(-pid, sig);        /* Send a kill signal */
     }
     return;
 }
-
 /*********************
  * End signal handlers
  *********************/
