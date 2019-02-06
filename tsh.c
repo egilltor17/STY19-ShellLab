@@ -72,6 +72,19 @@ struct job_t jobs[MAXJOBS]; /* The job list */
 
 
 /* Function prototypes */
+ssize_t Sio_puts(char s[]);
+pid_t Fork(void);
+int Kill(pid_t pid, int sig);
+int Execve(const char *filename, char *const argv[], char *const envp[]);
+int Sigemptyset(sigset_t *sig);
+int Sigaddset(sigset_t *sig, int signum);
+int Sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
+int Setpgid(pid_t pid, pid_t pgid);
+pid_t Waitpid(pid_t pid, int *status, int options);
+
+ssize_t sio_puts(char s[]);
+static size_t sio_strlen(char s[]);
+void sio_error(char s[]);
 
 /* Here are the functions that you will implement */
 void eval(char *cmdline);
@@ -83,10 +96,6 @@ void sigchld_handler(int sig);
 void sigtstp_handler(int sig);
 void sigint_handler(int sig);
 void std_sig_handler(int sig);
-ssize_t sio_puts(char s[]);
-ssize_t Sio_puts(char s[]);
-static size_t sio_strlen(char s[]);
-void sio_error(char s[]);
 
 /* Here are helper routines that we've provided for you */
 int parseline(const char *cmdline, char **argv);
@@ -175,8 +184,50 @@ int main(int argc, char **argv)
 
     exit(0); /* control never reaches here */
 }
+/*
+ *
+ *  HELPER FUNCTIONS
+ *
+ */
+/* safe IO for use in signal handlers, extracted from csapp.c*/
+ssize_t sio_puts(char s[]) /* Put string */ {
+    return write(STDOUT_FILENO, s, sio_strlen(s)); //line:csapp:siostrlen
+}
 
-/* Wraper for systemfunction fork() */
+static size_t sio_strlen(char s[])
+{
+    int i = 0;
+
+    while (s[i] != '\0') {
+        ++i;
+    }
+    return i;
+}
+
+void sio_error(char s[]) /* Put error message and exit */
+{
+    sio_puts(s);
+    _exit(1);                                      //line:csapp:sioexit
+}
+/*
+ *  END OF HELPER FUNCTIONS
+ */
+
+/*
+ *  WRAPPER FUNCTIONS
+ */
+
+/* Wrapper for csapp function sio_puts() */
+ssize_t Sio_puts(char s[])
+{
+    ssize_t n;
+    if ((n = sio_puts(s)) < 0) {
+	    sio_error("Sio_puts error");
+    }
+    return n;
+}
+
+/* Wrapper for systemfunction fork() */
 pid_t Fork(void)
 {
     int old_errno = errno;          /* Backup errno */
@@ -198,28 +249,6 @@ int Kill(pid_t pid, int sig)
     }
 	errno = old_errno;              /* Restore errno */
     return result;
-}
-ssize_t sio_puts(char s[]) /* Put string */ {
-    return write(STDOUT_FILENO, s, sio_strlen(s)); //line:csapp:siostrlen
-}
-ssize_t Sio_puts(char s[]) {
-    ssize_t n;
-    if ((n = sio_puts(s)) < 0)
-	sio_error("Sio_puts error");
-    return n;
-}
-static size_t sio_strlen(char s[])
-{
-    int i = 0;
-
-    while (s[i] != '\0')
-        ++i;
-    return i;
-}
-void sio_error(char s[]) /* Put error message and exit */
-{
-    sio_puts(s);
-    _exit(1);                                      //line:csapp:sioexit
 }
 
 /* Wraper for systemfunction execve() */
@@ -283,7 +312,7 @@ int Setpgid(pid_t pid, pid_t pgid)
 }
 
 /* Wraper for systemfunction waitpid() */
- pid_t Waitpid(pid_t pid, int *status, int options);
+pid_t Waitpid(pid_t pid, int *status, int options) 
 {
     int old_errno = errno;          /* Backup errno */
 	int result;
@@ -293,7 +322,9 @@ int Setpgid(pid_t pid, pid_t pgid)
 	errno = old_errno;              /* Restore errno */
     return result;
 }
-
+/*
+ *  END OF WRAPPER FUNCTIONS
+ */
 
 /*
  * eval - Evaluate the command line that the user has just typed in
@@ -543,6 +574,8 @@ void sigchld_handler(int sig)
     pid_t pid;              /* Process id of terminated child */
     int childStatus;        /* Status of the child */
     int old_errno = errno;  /* Back up errno */
+    char* string;           /* string for sio_puts() */
+
     while ((pid = Waitpid(-1, &childStatus, WNOHANG|WUNTRACED)) > 0) {
         if (WIFEXITED(childStatus)) {           /* Child terminated normally */ 
             deletejob(jobs, pid);
