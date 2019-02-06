@@ -200,33 +200,32 @@ void eval(char *cmdline)
 		return;					/* Ignore empty lines */
 	}
 
-    
-	
 	if (!builtin_cmd(argv)) {
         sigemptyset(&mask);
         sigaddset(&mask, SIGCHLD);
         sigprocmask(SIG_BLOCK, &mask, &prev_one); /* Block SIGCHLD */
 		if ((pid = Fork()) == 0) { /* Child runs user job */ 
+            //get new group for child process
             setpgid(0, 0);
             sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock SIGCHLD */
-
 			if (execve(argv[0], argv, environ) < 0) {
 			    printf("%s: Command not found.\n", argv[0]);
 			    exit(0);	
 			}
-            
 		} else { /* Parent */
-            
             /* Parent waits for foreground job to terminate */
-            if (!bg) {
-                addjob(jobs, pid, FG, cmdline);
+            
+            //add child to joblist
+            addjob(jobs, pid,(2 - !bg), cmdline);
+            sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock Parent */
+            if (!bg){
+                //wait for fg
                 waitfg(pid);
-            }
+            } 
             else {
-                addjob(jobs, pid, BG, cmdline);
+                //print for bg
                 printf("[%d] (%d) %s", pid2jid(pid), pid, cmdline);
             }
-            sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock Parent */
         }
 	}
 	return;
@@ -341,7 +340,7 @@ void do_bgfg(char **argv)
      */ 
     if (argv[1][0] == '%') { /* jid */
         /* pointer starts on the second character of the second argument (ex. %123) */
-        jid = atoi(argv[1][1]);
+        jid = atoi(argv[1] + 1);
         /* make the job pointer point to the job we plan to update */
         job = getjobjid(jobs, jid);
 
@@ -389,17 +388,24 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    int status;
-    if(waitpid(pid, &status, 0) < 0) {
-        unix_error("waitfg: waitpid error");
-    }
-    return;
-    // struct job_t *job = getjobpid(jobs, pid);
- 
-    // while (job->state == FG) {
-    //     sleep(1);
+    // int status;
+    // if(waitpid(pid, &status, 0) < 0) {
+    //     unix_error("waitfg: waitpid error");
     // }
     // return;
+   struct job_t* job;
+    job = getjobpid(jobs,pid);
+    //check if pid is valid
+    if(pid == 0){
+        return;
+    }
+    if(job != NULL){
+        //sleep
+        while(pid==fgpid(jobs)){
+            sleep(1);
+        }
+    }
+    return;
 }
 
 /*****************
@@ -418,7 +424,6 @@ void sigchld_handler(int sig)
     pid_t pid;
     int childStatus;
     while ((pid = waitpid(-1, &childStatus, WNOHANG|WUNTRACED)) > 0) {
-        printf("asdfasdfasdasdf");
         fflush(stdout);
         if (WIFEXITED(childStatus)){
             deletejob(jobs, pid);
@@ -426,10 +431,10 @@ void sigchld_handler(int sig)
         else if(WIFSTOPPED(childStatus)) {
             /*Set job state to stopped*/
             getjobpid(jobs, pid)->state = ST;
-            printf("Job [%d] (%d) stopped by signal %d", pid2jid(pid), pid, WSTOPSIG(childStatus));
+            printf("Job [%d] (%d) stopped by signal %d\n", pid2jid(pid), pid, WSTOPSIG(childStatus));
         }
         else if(WIFSIGNALED(childStatus)) {
-            printf("Job [%d] (%d) terminated by signal %d", pid2jid(pid), pid, WTERMSIG(childStatus));
+            printf("Job [%d] (%d) terminated by signal %d\n", pid2jid(pid), pid, WTERMSIG(childStatus));
             deletejob(jobs, pid);
         }
         else {
@@ -449,7 +454,7 @@ void sigint_handler(int sig)
 {
     //get the pid of the process in the forground
     pid_t pid = fgpid(jobs);
-    if (pid > 0 && pid2jid(pid) > 0)
+    if ((pid > 0) && (pid2jid(pid) > 0))
     {
         /*Send a kill SIGINT*/
         kill(-pid, sig);
@@ -466,7 +471,7 @@ void sigtstp_handler(int sig)
 {
     //get the pid of the process in the forground
     pid_t pid = fgpid(jobs);
-    if (pid > 0)
+    if ((pid > 0) && (pid2jid(pid) > 0))
     {
         /*Send a kill SIGTSTP*/
         kill(-pid, sig);
