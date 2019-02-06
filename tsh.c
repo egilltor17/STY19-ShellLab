@@ -200,13 +200,14 @@ void eval(char *cmdline)
 		return;					/* Ignore empty lines */
 	}
 
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGCHLD);
-    sigprocmask(SIG_BLOCK, &mask, &prev_one); /* Block SIGCHLD */
+    
 	
 	if (!builtin_cmd(argv)) {
-        
+        sigemptyset(&mask);
+        sigaddset(&mask, SIGCHLD);
+        sigprocmask(SIG_BLOCK, &mask, &prev_one); /* Block SIGCHLD */
 		if ((pid = Fork()) == 0) { /* Child runs user job */ 
+            setpgid(0, 0);
             sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock SIGCHLD */
 
 			if (execve(argv[0], argv, environ) < 0) {
@@ -215,18 +216,17 @@ void eval(char *cmdline)
 			}
             
 		} else { /* Parent */
-
-            addjob(jobs, pid, 2 - !bg, cmdline);
-
+            
             /* Parent waits for foreground job to terminate */
             if (!bg) {
+                addjob(jobs, pid, FG, cmdline);
                 waitfg(pid);
-                deletejob(jobs, pid);
             }
             else {
+                addjob(jobs, pid, BG, cmdline);
                 printf("[%d] (%d) %s", pid2jid(pid), pid, cmdline);
             }
-            sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock SIGCHLD */
+            sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock Parent */
         }
 	}
 	return;
@@ -393,18 +393,25 @@ void sigchld_handler(int sig)
 {
     pid_t pid;
     int childStatus;
-    while ((pid = waitpid(fgpid(jobs), &childStatus, WNOHANG)) > 0){
+    while ((pid = waitpid(-1, &childStatus, WNOHANG|WUNTRACED)) > 0) {
+        printf("asdfasdfasdasdf");
+        fflush(stdout);
         if (WIFEXITED(childStatus)){
             deletejob(jobs, pid);
-            printf("child terminated, status=%d\n", pid, WEXITSTATUS(childStatus));
         }
-        else if(WIFSTOPPED(childStatus)){
+        else if(WIFSTOPPED(childStatus)) {
             /*Set job state to stopped*/
             getjobpid(jobs, pid)->state = ST;
-            printf("child stopped, pid=%d\n", pid);
+            printf("Job [%d] (%d) stopped by signal %d", pid2jid(pid), pid, WSTOPSIG(childStatus));
+        }
+        else if(WIFSIGNALED(childStatus)) {
+            printf("Job [%d] (%d) terminated by signal %d", pid2jid(pid), pid, WTERMSIG(childStatus));
+            deletejob(jobs, pid);
+        }
+        else {
+            printf("child terminated abnormallly\n");
         }
     }
-    //printf("child terminated abnormallly\n");
     fflush(stdout);
     return;
 }
@@ -418,7 +425,7 @@ void sigint_handler(int sig)
 {
     //get the pid of the process in the forground
     pid_t pid = fgpid(jobs);
-    if (pid > 0)
+    if (pid > 0 && pid2jid(pid) > 0)
     {
         /*Send a kill SIGINT*/
         kill(-pid, sig);
