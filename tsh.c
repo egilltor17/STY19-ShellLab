@@ -326,7 +326,7 @@ void do_bgfg(char **argv)
 
     /* checks of function has second argument */
     if (argv[1] == NULL) {
-        printf("%s command requires pid or jid as second argument\n", argv[0]);
+        printf("%s command requires PID or \%jobid argument\n", argv[0]);
         return;
     }
 
@@ -357,11 +357,11 @@ void do_bgfg(char **argv)
         job = getjobpid(jobs, pid);
 
         if (job == NULL) {
-            printf("%d: No such process\n", pid);
+            printf("(%d): No such process\n", pid);
             return;
         }
     } else { /* neither */
-        printf("second argument must be a pid or jid\n");
+        printf("argument must be a PID or \%jobid\n");
         return;
     }
 
@@ -384,7 +384,7 @@ void do_bgfg(char **argv)
 }
  
  
- 
+
 /*
  * waitfg - Block until process pid is no longer the foreground process
  */
