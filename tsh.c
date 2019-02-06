@@ -321,40 +321,70 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv)
 {
-    // struct job_t *job;
-    // int jid;
-    // pid_t pid;
- 
-    // /* Error handling */
-    // if(argv[1] == NULL) {
-    //     printf("%s command requires pid or jid as seccond argument\n");
-    //     return;
-    // }
- 
-    // /* bg == 0 if arg1 == fg, bg == 1 if arg1 == bg */
-    // int bg = 0;
-    // if (!strcmp(argv[0], "bg")) {
-    //     bg = 1;
-    // }
- 
-    // /*
-    //  * the following three if statements read the first
-    //  * character from the seccond element of argv to see
-    //  * whether the seccond element is a
-    //  * jid : argv[1][0] == '%'
-    //  * pid : 0 > argv[1][0] <= 9
-    //  * neither
-    //  */
-    // if (argv[1][0] == '%') { /* jid */
-    //     jid = atoi()
-    // }
-    // else if (argv[1][0] > '0' && argv[1][0] <= '9') { /* pid */
- 
-    // }
-    // else { /* neither */
- 
-     
- 
+    struct job_t *job;
+    int jid;
+    pid_t pid;
+
+    /* checks of function has seccond argument */
+    if (argv[1] == NULL) {
+        printf("%s command requires pid or jid as seccond argument\n", argv[0]);
+        return;
+    }
+
+    /*
+     * the following three if statements read the first
+     * character from the seccond element of argv to see
+     * whether the seccond element is a
+     * jid : argv[1][0] == '%'
+     * pid : 0 > argv[1][0] <= 9
+     * neither
+     */ 
+    if (argv[1][0] == '%') { /* jid */
+        /* pointer starts on the second character of the second argument (ex. %123) */
+        jid = atoi(argv[1][1]);
+        /* make the job pointer point to the job we plan to update */
+        job = getjobjid(jobs, jid);
+
+        if (job == NULL) {
+            printf("%s: No such job\n", argv[1]);
+            return;
+        }
+    }
+    else if (argv[1][0] > '0' && argv[1][0] <= '9') { /* pid */
+        /* pointer starts on the first character of the second argument (ex. 123) */
+        pid = atoi(argv[1]);
+        /* make the job pointer point to the job we plan to update */
+        job = getjobpid(jobs, pid);
+
+        if (job == NULL) {
+            printf("%d: No such process\n", pid);
+            return;
+        }
+    }
+    else { /* neither */
+        printf("seccond argument must be a pid or jid\n");
+        return;
+    }
+
+
+    /* 
+     * When first argument is "bg"
+     * we want to change the state off the job
+     * from stopped to background
+     * ST -> BG 
+     * 
+     */
+    if (!strcmp(argv[0], "bg")) {
+        job->state = BG;
+        kill(-job->pid, SIGCONT);
+        printf("[%d] (%d) %s", job->jid, job->pid, job->cmdline);
+    }
+    /* ST -> FG or BG -> FG */
+    else {
+        job->state = FG;
+        kill(-job->pid, SIGCONT);
+        waitfg(job->pid);
+    }
     return;
 }
  
