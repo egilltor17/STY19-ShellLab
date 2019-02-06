@@ -325,16 +325,16 @@ void do_bgfg(char **argv)
     int jid;
     pid_t pid;
 
-    /* checks of function has seccond argument */
+    /* checks of function has second argument */
     if (argv[1] == NULL) {
-        printf("%s command requires pid or jid as seccond argument\n", argv[0]);
+        printf("%s command requires pid or jid as second argument\n", argv[0]);
         return;
     }
 
     /*
      * the following three if statements read the first
-     * character from the seccond element of argv to see
-     * whether the seccond element is a
+     * character from the second element of argv to see
+     * whether the second element is a
      * jid : argv[1][0] == '%'
      * pid : 0 > argv[1][0] <= 9
      * neither
@@ -349,8 +349,7 @@ void do_bgfg(char **argv)
             printf("%s: No such job\n", argv[1]);
             return;
         }
-    }
-    else if (argv[1][0] > '0' && argv[1][0] <= '9') { /* pid */
+    } else if (argv[1][0] > '0' && argv[1][0] <= '9') { /* pid */
         /* pointer starts on the first character of the second argument (ex. 123) */
         pid = atoi(argv[1]);
         /* make the job pointer point to the job we plan to update */
@@ -360,30 +359,25 @@ void do_bgfg(char **argv)
             printf("%d: No such process\n", pid);
             return;
         }
-    }
-    else { /* neither */
-        printf("seccond argument must be a pid or jid\n");
+    } else { /* neither */
+        printf("second argument must be a pid or jid\n");
         return;
     }
 
-
     /* 
-     * When first argument is "bg"
-     * we want to change the state off the job
-     * from stopped to background
-     * ST -> BG 
-     * 
+     * -When first argument is "bg"
+     * we want to change the state off the job to background (BG)
+     * -When first argument is "fg"
+     * we want to change the state off the job to foreground (FG)
      */
     if (!strcmp(argv[0], "bg")) {
         job->state = BG;
-        kill(-job->pid, SIGCONT);
+        kill(-job->pid, SIGCONT); /* send SIGCONT to entire group of job */
         printf("[%d] (%d) %s", job->jid, job->pid, job->cmdline);
-    }
-    /* ST -> FG or BG -> FG */
-    else {
+    } else {
         job->state = FG;
-        kill(-job->pid, SIGCONT);
-        waitfg(job->pid);
+        kill(-job->pid, SIGCONT); /* send SIGCONT to entire group of job */
+        waitfg(job->pid); /* wait for foreground job to finish */
     }
     return;
 }
