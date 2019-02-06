@@ -326,7 +326,7 @@ void do_bgfg(char **argv)
 
     /* checks of function has second argument */
     if (argv[1] == NULL) {
-        printf("%s command requires PID or \%jobid argument\n", argv[0]);
+        printf("%s command requires PID or %%jobid argument\n", argv[0]);
         return;
     }
 
@@ -361,7 +361,7 @@ void do_bgfg(char **argv)
             return;
         }
     } else { /* neither */
-        printf("argument must be a PID or \%jobid\n");
+        printf("argument must be a PID or %%jobid\n");
         return;
     }
 
