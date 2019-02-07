@@ -61,6 +61,8 @@ int verbose = 0;            /* if true, print additional output */
 int nextjid = 1;            /* next job ID to allocate */
 char sbuf[MAXLINE];         /* for composing sprintf messages */
 
+char intstring[10];
+
 struct job_t {              /* The job struct */
     pid_t pid;              /* job PID */
     int jid;                /* job ID [1, 2, ...] */
@@ -72,7 +74,6 @@ struct job_t jobs[MAXJOBS]; /* The job list */
 
 
 /* Function prototypes */
-ssize_t Sio_puts(char s[]);
 pid_t Fork(void);
 int Kill(pid_t pid, int sig);
 int Execve(const char *filename, char *const argv[], char *const envp[]);
@@ -80,11 +81,15 @@ int Sigemptyset(sigset_t *sig);
 int Sigaddset(sigset_t *sig, int signum);
 int Sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
 int Setpgid(pid_t pid, pid_t pgid);
-pid_t Waitpid(pid_t pid, int *status, int options);
+ssize_t Sio_puts(char s[]);
+ssize_t Sio_putl(long v);
 
+/* Functions extracted from csapp.c */
 ssize_t sio_puts(char s[]);
 static size_t sio_strlen(char s[]);
 void sio_error(char s[]);
+ssize_t sio_putl(long v);
+static void sio_ltoa(long v, char s[], int b);
 
 /* Here are the functions that you will implement */
 void eval(char *cmdline);
@@ -209,6 +214,44 @@ void sio_error(char s[]) /* Put error message and exit */
     sio_puts(s);
     _exit(1);                                      //line:csapp:sioexit
 }
+/* sio_reverse - Reverse a string (from K&R) */
+static void sio_reverse(char s[])
+{
+    int c, i, j;
+
+    for (i = 0, j = strlen(s)-1; i < j; i++, j--) {
+        c = s[i];
+        s[i] = s[j];
+        s[j] = c;
+    }
+}
+
+ssize_t sio_putl(long v) /* Put long */
+{
+    char s[128];
+    
+    sio_ltoa(v, s, 10); /* Based on K&R itoa() */  //line:csapp:sioltoa
+    return sio_puts(s);
+}
+static void sio_ltoa(long v, char s[], int b) 
+{
+    int c, i = 0;
+    int neg = v < 0;
+
+    if (neg)
+	v = -v;
+
+    do {  
+        s[i++] = ((c = (v % b)) < 10)  ?  c + '0' : c - 10 + 'a';
+    } while ((v /= b) > 0);
+
+    if (neg)
+	s[i++] = '-';
+
+    s[i] = '\0';
+    sio_reverse(s);
+}
+
 /*
  *  END OF HELPER FUNCTIONS
  */
@@ -216,6 +259,76 @@ void sio_error(char s[]) /* Put error message and exit */
 /*
  *  WRAPPER FUNCTIONS
  */
+
+/* Wrapper for systemfunction fork() */
+pid_t Fork(void)
+{
+	pid_t pid;                      /* Process id */
+	if ((pid = fork()) < 0) {
+		unix_error("fork error");
+    }
+    return pid;
+}
+
+/* Wraper for systemfunction kill() */
+int Kill(pid_t pid, int sig)
+{
+	int result;                     /* return form kill */
+	if ((result = kill(pid, sig)) < 0) {
+		unix_error("kill error");
+    }
+    return result;
+}
+
+/* Wraper for systemfunction execve() */
+int Execve(const char *filename, char *const argv[], char *const envp[])
+{
+	int result;
+	if ((result = execve(filename, argv, envp)) < 0) {
+		unix_error("execve error");
+    }
+    return result;
+}
+
+/* Wraper for systemfunction sigemptyset() */
+int Sigemptyset(sigset_t *sig)
+{
+	int result;
+	if ((result = sigemptyset(sig)) < 0) {
+		unix_error("sigemptyset error");
+    }
+    return result;
+}
+
+/* Wraper for systemfunction sigaddset() */
+int Sigaddset(sigset_t *sig, int signum)
+{
+	int result;
+	if ((result = sigaddset(sig, signum)) < 0) {
+		unix_error("sigaddset error");
+    }
+    return result;
+}
+
+/* Wraper for systemfunction sigprocmask() */
+int Sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset)
+{
+	int result;
+	if ((result = sigprocmask(how, set, oset)) < 0) {
+		unix_error("sigprocmask error");
+    }
+    return result;
+}
+
+/* Wraper for systemfunction setpgid() */
+int Setpgid(pid_t pid, pid_t pgid)
+{
+	int result;
+	if ((result = setpgid(pid, pgid)) < 0) {
+		unix_error("setpgid error");
+    }
+    return result;
+}
 
 /* Wrapper for csapp function sio_puts() */
 ssize_t Sio_puts(char s[])
@@ -227,101 +340,15 @@ ssize_t Sio_puts(char s[])
     return n;
 }
 
-/* Wrapper for systemfunction fork() */
-pid_t Fork(void)
+/* Wrapper for csapp function sio_puts() */
+ssize_t Sio_putl(long v)
 {
-    int old_errno = errno;          /* Backup errno */
-	pid_t pid;                      /* Process id */
-	if ((pid = fork()) < 0) {
-		unix_error("fork error");
-    }
-	errno = old_errno;              /* Restore errno */
-    return pid;
+    ssize_t n;
+    if ((n = sio_putl(v)) < 0)
+	sio_error("Sio_putl error");
+    return n;
 }
 
-/* Wraper for systemfunction kill() */
-int Kill(pid_t pid, int sig)
-{
-    int old_errno = errno;          /* Backup errno */
-	int result;                     /* return form kill */
-	if ((result = kill(pid, sig)) < 0) {
-		unix_error("kill error");
-    }
-	errno = old_errno;              /* Restore errno */
-    return result;
-}
-
-/* Wraper for systemfunction execve() */
-int Execve(const char *filename, char *const argv[], char *const envp[])
-{
-    int old_errno = errno;          /* Backup errno */
-	int result;
-	if ((result = execve(filename, argv, envp)) < 0) {
-		unix_error("execve error");
-    }
-	errno = old_errno;              /* Restore errno */
-    return result;
-}
-
-/* Wraper for systemfunction sigemptyset() */
-int Sigemptyset(sigset_t *sig)
-{
-    int old_errno = errno;          /* Backup errno */
-	int result;
-	if ((result = sigemptyset(sig)) < 0) {
-		unix_error("sigemptyset error");
-    }
-	errno = old_errno;              /* Restore errno */
-    return result;
-}
-
-/* Wraper for systemfunction sigaddset() */
-int Sigaddset(sigset_t *sig, int signum)
-{
-    int old_errno = errno;          /* Backup errno */
-	int result;
-	if ((result = sigaddset(sig, signum)) < 0) {
-		unix_error("sigaddset error");
-    }
-	errno = old_errno;              /* Restore errno */
-    return result;
-}
-
-/* Wraper for systemfunction sigprocmask() */
-int Sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset)
-{
-    int old_errno = errno;          /* Backup errno */
-	int result;
-	if ((result = sigprocmask(how, set, oset)) < 0) {
-		unix_error("sigprocmask error");
-    }
-	errno = old_errno;              /* Restore errno */
-    return result;
-}
-
-/* Wraper for systemfunction setpgid() */
-int Setpgid(pid_t pid, pid_t pgid)
-{
-    int old_errno = errno;          /* Backup errno */
-	int result;
-	if ((result = setpgid(pid, pgid)) < 0) {
-		unix_error("setpgid error");
-    }
-	errno = old_errno;              /* Restore errno */
-    return result;
-}
-
-/* Wraper for systemfunction waitpid() */
-pid_t Waitpid(pid_t pid, int *status, int options) 
-{
-    int old_errno = errno;          /* Backup errno */
-	int result;
-	if ((result = waitpid(pid, status, options)) < 0) {
-		unix_error("waitpid error");
-    }
-	errno = old_errno;              /* Restore errno */
-    return result;
-}
 /*
  *  END OF WRAPPER FUNCTIONS
  */
@@ -472,7 +499,7 @@ void do_bgfg(char **argv)
     int jid;                /* Job id */
     pid_t pid;              /* Process id */
 
-    /* checks of function has second argument */
+    /* checks if function has second argument */
     if (argv[1] == NULL) {
         printf("%s command requires PID or %%jobid argument\n", argv[0]);
         return;
@@ -480,11 +507,8 @@ void do_bgfg(char **argv)
 
     /*
      * the following three if statements read the first
-     * character from the second element of argv to see
-     * whether the second element is a
-     * jid : argv[1][0] == '%'
-     * pid : 0 > argv[1][0] <= 9
-     * neither
+     * character from the second argument of argv to see
+     * whether the second argument is a jid or a pid or neither
      */ 
     if (argv[1][0] == '%') { /* jid */
         /*
@@ -493,17 +517,16 @@ void do_bgfg(char **argv)
          * and not a part of the jid itself 
          */
         jid = atoi(argv[1] + 1);
-        /* make the job pointer point to the job we plan to update */
+        /* get the job we need to update */
         job = getjobjid(jobs, jid);
 
         if (job == NULL) {
             printf("%s: No such job\n", argv[1]);
             return;
         }
-    } else if (argv[1][0] > '0' && argv[1][0] <= '9') { /* pid */
+    } else if ( '0' < argv[1][0] && argv[1][0] <= '9') { /* pid */
         /* pointer starts on the first character of the second argument (ex. 123) */
         pid = atoi(argv[1]);
-        /* make the job pointer point to the job we plan to update */
         job = getjobpid(jobs, pid);
 
         if (job == NULL) {
@@ -515,17 +538,12 @@ void do_bgfg(char **argv)
         return;
     }
 
-    /* 
-     * -When first argument is "bg"
-     * we want to change the state off the job to background (BG)
-     * -When first argument is "fg"
-     * we want to change the state off the job to foreground (FG)
-     */
+    /* Here we move the job to FG or BG */
     if (!strcmp(argv[0], "bg")) {
         job->state = BG;
         Kill(-job->pid, SIGCONT);       /* send SIGCONT to entire group of job */
         printf("[%d] (%d) %s", job->jid, job->pid, job->cmdline);
-    } else {
+    } else if (!strcmp(argv[0], "fg")) {
         job->state = FG;
         Kill(-job->pid, SIGCONT);       /* send SIGCONT to entire group of job */
         waitfg(job->pid);               /* wait for foreground job to finish */
@@ -538,21 +556,14 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    // int status;
-    // if(waitpid(pid, &status, 0) < 0) {
-    //     unix_error("waitfg: waitpid error");
-    // }
-    // return;
-    struct job_t* job;
-    job = getjobpid(jobs,pid);
     //check if pid is valid
-    if(pid == 0){
+    if (pid == 0) {
         return;
     }
-    if(job != NULL){
+    if (getjobpid(jobs,pid) != NULL) {
         //sleep
-        while(pid==fgpid(jobs)){
-            sleep(1);
+        while(pid == fgpid(jobs)) {
+                sleep(1);
         }
     }
     return;
@@ -574,30 +585,45 @@ void sigchld_handler(int sig)
     pid_t pid;              /* Process id of terminated child */
     int childStatus;        /* Status of the child */
     int old_errno = errno;  /* Back up errno */
-    char* string;           /* string for sio_puts() */
+    //char* string;           /* string for sio_puts() */
 
-    while ((pid = Waitpid(-1, &childStatus, WNOHANG|WUNTRACED)) > 0) {
+    /* no wrapper made for waitpid since it always eventually returns -1 when used in a while loop*/
+    while ((pid = waitpid(-1, &childStatus, WNOHANG|WUNTRACED)) > 0) {
         if (WIFEXITED(childStatus)) {           /* Child terminated normally */ 
             deletejob(jobs, pid);
         }
-        else if(WIFSTOPPED(childStatus)) {      /* Child stopped */ 
+        else if (WIFSTOPPED(childStatus)) {      /* Child stopped */ 
             getjobpid(jobs, pid)->state = ST;   /* Set job state to stopped */
-            if(asprintf(&string, "Job [%d] (%d) stopped by signal %d\n", pid2jid(pid), pid, WSTOPSIG(childStatus)) < 0) {
-                unix_error("asprintf error");
-            }
-            Sio_puts(string);
+            /* To print async signal safe we call sio_puts seperately for each string between a variable and the variables themselves,
+            * We use sio_putl to print the variables after we cast them to long
+            */
+            Sio_puts("Job [");
+            Sio_putl((long)pid2jid(pid));
+            Sio_puts("] (");
+            Sio_putl((long)pid);
+            Sio_puts(") stopped by signal ");
+            Sio_putl((long)WSTOPSIG(childStatus));
+            Sio_puts("\n");
         }
-        else if(WIFSIGNALED(childStatus)) {     /* Child terminated by uncaught signal */
-            if (asprintf(&string, "Job [%d] (%d) terminated by signal %d\n", pid2jid(pid), pid, WTERMSIG(childStatus)) < 0) {
-                unix_error("asprintf error");
-            }
-            Sio_puts(string);
+        else if (WIFSIGNALED(childStatus)) {     /* Child terminated by uncaught signal */
+
+            Sio_puts("Job [");
+            Sio_putl((long)pid2jid(pid));
+            Sio_puts("] (");
+            Sio_putl((long)pid);
+            Sio_puts(") terminated by signal ");
+            Sio_putl((long)WTERMSIG(childStatus));
+            Sio_puts("\n");
             deletejob(jobs, pid);
         }
         else {                                  /* Child terminated by unusual signal */
             Sio_puts("child terminated abnormallly\n");
         }
     }
+    if (pid < 0 && errno != ECHILD)  /*if waitpid failed with error except for echild since it will always eventually happen*/
+        {
+            unix_error("Waitpid error");
+        }
     errno = old_errno;      /* Restore errno */
     return;
 }
@@ -629,10 +655,12 @@ void sigtstp_handler(int sig)
  */
 void std_sig_handler(int sig)
 {
+    int old_errno = errno;          /* Backup errno */
     pid_t pid = fgpid(jobs);    /* get the pid of the process in the forground */
     if ((pid > 0) && (pid2jid(pid) > 0)) {
-        Kill(-pid, sig);        /* Send a kill signal */
+        kill(-pid, sig);        /* Send a kill signal */
     }
+    errno = old_errno;  /* Restore errno */
     return;
 }
 /*********************
@@ -690,7 +718,7 @@ int addjob(struct job_t *jobs, pid_t pid, int state, char *cmdline)
             if (nextjid > MAXJOBS)
                 nextjid = 1;
             strcpy(jobs[i].cmdline, cmdline);
-            if (verbose){
+            if (verbose) {
                 printf("Added job [%d] %d %s\n", jobs[i].jid, jobs[i].pid, jobs[i].cmdline);
             }
             return 1;
