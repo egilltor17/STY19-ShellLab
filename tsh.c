@@ -226,13 +226,16 @@ static void sio_reverse(char s[])
     }
 }
 
-ssize_t sio_putl(long v) /* Put long */
+/* Put long */
+ssize_t sio_putl(long v) 
 {
     char s[128];
     
     sio_ltoa(v, s, 10); /* Based on K&R itoa() */  //line:csapp:sioltoa
     return sio_puts(s);
 }
+
+/* sio_ltoa - Convert long to base b string (from K&R) */
 static void sio_ltoa(long v, char s[], int b) 
 {
     int c, i = 0;
@@ -270,7 +273,7 @@ pid_t Fork(void)
     return pid;
 }
 
-/* Wraper for systemfunction kill() */
+/* Wrapper for systemfunction kill() */
 int Kill(pid_t pid, int sig)
 {
 	int result;                     /* return form kill */
@@ -280,7 +283,7 @@ int Kill(pid_t pid, int sig)
     return result;
 }
 
-/* Wraper for systemfunction execve() */
+/* Wrapper for systemfunction execve() */
 int Execve(const char *filename, char *const argv[], char *const envp[])
 {
 	int result;
@@ -290,7 +293,7 @@ int Execve(const char *filename, char *const argv[], char *const envp[])
     return result;
 }
 
-/* Wraper for systemfunction sigemptyset() */
+/* Wrapper for systemfunction sigemptyset() */
 int Sigemptyset(sigset_t *sig)
 {
 	int result;
@@ -300,7 +303,7 @@ int Sigemptyset(sigset_t *sig)
     return result;
 }
 
-/* Wraper for systemfunction sigaddset() */
+/* Wrapper for systemfunction sigaddset() */
 int Sigaddset(sigset_t *sig, int signum)
 {
 	int result;
@@ -310,7 +313,7 @@ int Sigaddset(sigset_t *sig, int signum)
     return result;
 }
 
-/* Wraper for systemfunction sigprocmask() */
+/* Wrapper for systemfunction sigprocmask() */
 int Sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset)
 {
 	int result;
@@ -320,7 +323,7 @@ int Sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset)
     return result;
 }
 
-/* Wraper for systemfunction setpgid() */
+/* Wrapper for systemfunction setpgid() */
 int Setpgid(pid_t pid, pid_t pgid)
 {
 	int result;
@@ -340,7 +343,7 @@ ssize_t Sio_puts(char s[])
     return n;
 }
 
-/* Wrapper for csapp function sio_puts() */
+/* Wrapper for csapp function sio_putl() */
 ssize_t Sio_putl(long v)
 {
     ssize_t n;
