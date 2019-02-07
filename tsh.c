@@ -317,7 +317,9 @@ pid_t Waitpid(pid_t pid, int *status, int options)
     int old_errno = errno;          /* Backup errno */
 	int result;
 	if ((result = waitpid(pid, status, options)) < 0) {
-		unix_error("waitpid error");
+		if(errno != ECHILD) {
+            unix_error("waitpid error");
+        }
     }
 	errno = old_errno;              /* Restore errno */
     return result;
@@ -468,9 +470,9 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv)
 {
-    struct job_t *job;      /* Job list */
-    int jid;                /* Job id */
-    pid_t pid;              /* Process id */
+    struct job_t *job;                  /* Job list */
+    int jid;                            /* Job id */
+    pid_t pid;                          /* Process id of child or null */
 
     /* checks of function has second argument */
     if (argv[1] == NULL) {
@@ -538,11 +540,12 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    // int status;
-    // if(waitpid(pid, &status, 0) < 0) {
-    //     unix_error("waitfg: waitpid error");
-    // }
-    // return;
+    int status;
+    if(waitpid(pid, &status, 0) < 0) {
+        sleep(1);
+    }
+    return;
+    /*
     struct job_t* job;
     job = getjobpid(jobs,pid);
     //check if pid is valid
@@ -556,6 +559,7 @@ void waitfg(pid_t pid)
         }
     }
     return;
+    */
 }
 
 /*****************
@@ -568,37 +572,41 @@ void waitfg(pid_t pid)
  *     received a SIGSTOP or SIGTSTP signal. The handler reaps all
  *     available zombie children, but doesn't wait for any other
  *     currently running children to terminate.
+ * 
+ *  we are using asprintf() to build our 
  */
 void sigchld_handler(int sig)
 {
     pid_t pid;              /* Process id of terminated child */
     int childStatus;        /* Status of the child */
     int old_errno = errno;  /* Back up errno */
-    char* string;           /* string for sio_puts() */
 
     while ((pid = Waitpid(-1, &childStatus, WNOHANG|WUNTRACED)) > 0) {
+        char** string;                          /* string* passed to asprintf() to build so that sio_puts() can print it */
+
         if (WIFEXITED(childStatus)) {           /* Child terminated normally */ 
             deletejob(jobs, pid);
         }
         else if(WIFSTOPPED(childStatus)) {      /* Child stopped */ 
             getjobpid(jobs, pid)->state = ST;   /* Set job state to stopped */
-            if(asprintf(&string, "Job [%d] (%d) stopped by signal %d\n", pid2jid(pid), pid, WSTOPSIG(childStatus)) < 0) {
+            if(asprintf(string, "Job [%d] (%d) stopped by signal %d\n", pid2jid(pid), pid, WSTOPSIG(childStatus)) < 0) {
                 unix_error("asprintf error");
             }
-            Sio_puts(string);
+            Sio_puts(*string);
         }
         else if(WIFSIGNALED(childStatus)) {     /* Child terminated by uncaught signal */
-            if (asprintf(&string, "Job [%d] (%d) terminated by signal %d\n", pid2jid(pid), pid, WTERMSIG(childStatus)) < 0) {
+            if (asprintf(string, "Job [%d] (%d) terminated by signal %d\n", pid2jid(pid), pid, WTERMSIG(childStatus)) < 0) {
                 unix_error("asprintf error");
             }
-            Sio_puts(string);
+            Sio_puts(*string);
             deletejob(jobs, pid);
         }
         else {                                  /* Child terminated by unusual signal */
             Sio_puts("child terminated abnormallly\n");
         }
+        free(string);
     }
-    errno = old_errno;      /* Restore errno */
+    errno = old_errno;      /* Restore errno so that it is the same for the calling function */
     return;
 }
 
