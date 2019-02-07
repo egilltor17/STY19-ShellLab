@@ -1,8 +1,6 @@
 /*
  * tsh - A tiny shell program with job control
  *
- * You __MUST__ add your user information here below
- *
  * === User information ===
  * Group: Pending-group-name
  * ===
@@ -17,7 +15,6 @@
  * === End User Information ===
  */
 
-/*  */
 // #ifndef _GNU_SOURCE
 // #define _GNU_SOURCE 1
 // #endif
@@ -226,7 +223,8 @@ static void sio_reverse(char s[])
     }
 }
 
-ssize_t sio_putl(long v) /* Put long */
+/* Put long */
+ssize_t sio_putl(long v) 
 {
     char s[128];
     
@@ -234,6 +232,7 @@ ssize_t sio_putl(long v) /* Put long */
     return sio_puts(s);
 }
 
+/* sio_ltoa - Convert long to base b string (from K&R) */
 static void sio_ltoa(long v, char s[], int b) 
 {
     int c, i = 0;
@@ -252,16 +251,16 @@ static void sio_ltoa(long v, char s[], int b)
     s[i] = '\0';
     sio_reverse(s);
 }
-
 /*
  *  END OF HELPER FUNCTIONS
  */
+
 
 /*
  *  WRAPPER FUNCTIONS
  */
 
-/* Wrapper for systemfunction fork() */
+/* Wrapper for system function fork() */
 pid_t Fork(void)
 {
 	pid_t pid;                      /* Process id */
@@ -271,7 +270,7 @@ pid_t Fork(void)
     return pid;
 }
 
-/* Wraper for systemfunction kill() */
+/* Wrapper for system function kill() */
 int Kill(pid_t pid, int sig)
 {
 	int result;                     /* return form kill */
@@ -281,7 +280,7 @@ int Kill(pid_t pid, int sig)
     return result;
 }
 
-/* Wraper for systemfunction execve() */
+/* Wrapper for system function execve() */
 int Execve(const char *filename, char *const argv[], char *const envp[])
 {
 	int result;
@@ -291,7 +290,7 @@ int Execve(const char *filename, char *const argv[], char *const envp[])
     return result;
 }
 
-/* Wraper for systemfunction sigemptyset() */
+/* Wrapper for system function sigemptyset() */
 int Sigemptyset(sigset_t *sig)
 {
 	int result;
@@ -301,7 +300,7 @@ int Sigemptyset(sigset_t *sig)
     return result;
 }
 
-/* Wraper for systemfunction sigaddset() */
+/* Wrapper for system function sigaddset() */
 int Sigaddset(sigset_t *sig, int signum)
 {
 	int result;
@@ -311,7 +310,7 @@ int Sigaddset(sigset_t *sig, int signum)
     return result;
 }
 
-/* Wraper for systemfunction sigprocmask() */
+/* Wrapper for system function sigprocmask() */
 int Sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset)
 {
 	int result;
@@ -321,7 +320,7 @@ int Sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset)
     return result;
 }
 
-/* Wraper for systemfunction setpgid() */
+/* Wrapper for system function setpgid() */
 int Setpgid(pid_t pid, pid_t pgid)
 {
 	int result;
@@ -341,7 +340,7 @@ ssize_t Sio_puts(char s[])
     return n;
 }
 
-/* Wrapper for csapp function sio_puts() */
+/* Wrapper for csapp function sio_putl() */
 ssize_t Sio_putl(long v)
 {
     ssize_t n;
@@ -349,7 +348,6 @@ ssize_t Sio_putl(long v)
 	sio_error("Sio_putl error");
     return n;
 }
-
 /*
  *  END OF WRAPPER FUNCTIONS
  */
@@ -424,7 +422,7 @@ int parseline(const char *cmdline, char **argv)
     int bg;                     /* background job? */
 
     strcpy(buf, cmdline);
-    buf[strlen(buf)-1] = ' ';  /* replace trailing '\n' with space */
+    buf[strlen(buf)-1] = ' ';       /* replace trailing '\n' with space */
     while (*buf && (*buf == ' ')) { /* ignore leading spaces */
         buf++;
     }
@@ -588,18 +586,19 @@ void sigchld_handler(int sig)
     pid_t pid;              /* Process id of terminated child */
     int childStatus;        /* Status of the child */
     int old_errno = errno;  /* Back up errno */
-    //char* string;           /* string for sio_puts() */
 
     /* no wrapper made for waitpid since it always eventually returns -1 when used in a while loop*/
     while ((pid = waitpid(-1, &childStatus, WNOHANG|WUNTRACED)) > 0) {
         if (WIFEXITED(childStatus)) {           /* Child terminated normally */ 
             deletejob(jobs, pid);
         }
-        else if (WIFSTOPPED(childStatus)) {      /* Child stopped */ 
+        else if (WIFSTOPPED(childStatus)) {     /* Child stopped */ 
             getjobpid(jobs, pid)->state = ST;   /* Set job state to stopped */
-            /* To print async signal safe we call sio_puts seperately for each string between a variable and the variables themselves,
-            * We use sio_putl to print the variables after we cast them to long
-            */
+            /* 
+             * To print async signal safe we call sio_puts seperately for each 
+             * string between a variable and the variables themselves,
+             * We use sio_putl to print the variables after we cast them to long
+             */
             Sio_puts("Job [");
             Sio_putl((long)pid2jid(pid));
             Sio_puts("] (");
@@ -622,12 +621,11 @@ void sigchld_handler(int sig)
         else {                                  /* Child terminated by unusual signal */
             Sio_puts("child terminated abnormallly\n");
         }
-        free(string);
     }
-    if (pid < 0 && errno != ECHILD) { /*if waitpid failed with error except for echild since it will always eventually happen*/
-        unix_error("Waitpid error");
+    if (pid < 0 && errno != ECHILD) {           /* waitpid() failed with error other than ECHILD */
+        unix_error("Waitpid error");            /*   since the loop does not stop until waitpid() returns an error state */
     }
-    errno = old_errno;      /* Restore errno */
+    errno = old_errno;                          /* Restore errno to it's previous state so that is is unalyered for the previus process */
     return;
 }
 
@@ -654,16 +652,16 @@ void sigtstp_handler(int sig)
 }
 
 /*
- * make standard sig handler so the handlers arent depending on each other
+ * Standard sig handler so the other handlers aren't depending on each other
  */
 void std_sig_handler(int sig)
 {
-    int old_errno = errno;          /* Backup errno */
-    pid_t pid = fgpid(jobs);    /* get the pid of the process in the forground */
+    int old_errno = errno;      /* Backing up errno so that is can be retored for the previous process incase kill() modifies it */
+    pid_t pid = fgpid(jobs);    /* Get the pid of the forground process */
     if ((pid > 0) && (pid2jid(pid) > 0)) {
-        kill(-pid, sig);        /* Send a kill signal */
+        kill(-pid, sig);        /* Send a kill command with the passed signal parameter */
     }
-    errno = old_errno;  /* Restore errno */
+    errno = old_errno;
     return;
 }
 /*********************
