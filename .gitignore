@@ -6,6 +6,7 @@
 *.out
 *.s
 *.o
+tsh
 
 # Compiled shell
 ./tsh
