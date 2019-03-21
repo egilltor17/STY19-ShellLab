@@ -16,3 +16,7 @@ tsh
 ./myspin
 ./mysplit
 ./mystop
+
+# Report
+*.pdf
+*.docx
